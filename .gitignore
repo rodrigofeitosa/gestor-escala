@@ -1,0 +1,8 @@
+node_modules/
+.env*
+*.RB1
+*.rb1
+AFD*.txt
+*.zip
+.qa/
+.DS_Store
