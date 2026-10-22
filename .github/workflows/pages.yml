@@ -1,4 +1,4 @@
-name: Validar e publicar demo
+name: Validar e publicar piloto
 on:
   push:
     branches: [main]
@@ -18,7 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
       - run: npm test
+      - run: npm run build
   deploy:
     needs: validate
     environment:
@@ -30,16 +32,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm test
-      - name: Preparar somente arquivos públicos da demo
-        run: |
-          mkdir -p _site
-          cp index.html .nojekyll _site/
-          cp -r assets _site/
+      - run: npm ci
+      - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: dist
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4

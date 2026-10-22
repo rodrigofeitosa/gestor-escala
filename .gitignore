@@ -6,3 +6,7 @@ AFD*.txt
 *.zip
 .qa/
 .DS_Store
+dist/
+*.docx
+*.pdf
+*.seed.private.*

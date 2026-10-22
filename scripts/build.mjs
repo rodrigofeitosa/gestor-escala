@@ -1,0 +1,13 @@
+import { build } from 'esbuild';
+import { cp, mkdir, rm } from 'node:fs/promises';
+import { dirname,resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const output=resolve(root,'dist');
+if(output!==resolve(root,'dist')||!output.startsWith(root))throw new Error('Invalid output directory');
+await rm(output,{recursive:true,force:true});
+await mkdir(output,{recursive:true});
+for(const file of ['index.html','demo.html','.nojekyll'])await cp(resolve(root,file),resolve(output,file));
+await cp(resolve(root,'assets'),resolve(output,'assets'),{recursive:true});
+await build({entryPoints:[resolve(root,'assets/pilot.mjs')],outfile:resolve(output,'assets/pilot.js'),bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,legalComments:'eof'});
+console.log('Piloto e demo preparados em dist/. Nenhum dado operacional foi incluído.');

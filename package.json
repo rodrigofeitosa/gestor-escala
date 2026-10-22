@@ -1,12 +1,21 @@
 {
   "name": "gestor-escala",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Piloto demonstrativo de escalas para supermercados",
+  "description": "Piloto operacional de quadro, cobertura e escalas para supermercados",
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "test": "node --test tests/core.test.mjs"
+    "start": "npm run build && node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/core.test.mjs tests/pilot.test.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }
