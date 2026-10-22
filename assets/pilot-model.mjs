@@ -11,6 +11,16 @@ const time = (value) => value?.slice(0, 5) || "";
 function normalizedSettings(unit) {
   return { ...DEFAULT_SETTINGS, ...unit.settings, opening: { ...DEFAULT_SETTINGS.opening, ...unit.settings?.opening }, policy: { ...DEFAULT_SETTINGS.policy, ...unit.settings?.policy } };
 }
+function validateOpeningHours(opening) {
+  const validTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d(?::00)?$/.test(value);
+  for (let day = 0; day < 7; day++) {
+    const hours = opening?.[day];
+    if (!hours || !validTime(hours.open) || !validTime(hours.close) || minutes(hours.open) >= minutes(hours.close)) throw new Error("Informe abertura anterior ao fechamento em todos os dias.");
+    const closure = hours.closure;
+    if (closure !== void 0 && closure !== null && (!validTime(closure.start) || !validTime(closure.end) || !(minutes(hours.open) < minutes(closure.start) && minutes(closure.start) < minutes(closure.end) && minutes(closure.end) < minutes(hours.close)))) throw new Error(`Informe o fechamento durante o dia dentro do funcionamento, com a reabertura após o início (${WEEKDAYS[day]}).`);
+  }
+  return true;
+}
 function contextFor(data, unitId) {
   const unit = data.units.find((u) => u.id === unitId);
   const assignments = data.unit_assignments.filter((a) => a.unit_id === unitId).map((a) => ({ ...a, person: data.people.find((p) => p.id === a.person_id) })).filter((a) => a.person);
@@ -44,23 +54,30 @@ function requirementResult(ctx, rule, date, entries) {
   }
   const slots = [], base = Date.parse(date + "T00:00:00Z") / 6e4;
   const windowStart = base + minutes(time(rule.start_time)), windowEnd = base + minutes(time(rule.end_time));
+  const closure = ctx.settings.opening?.[dayOf(date)]?.closure;
+  const closedStart = closure ? base + minutes(time(closure.start)) : null;
+  const closedEnd = closure ? base + minutes(time(closure.end)) : null;
   const spans = candidates.map((entry) => ({ entry, span: workSpan(entry) })).filter((x) => x.span);
   const points = /* @__PURE__ */ new Set([windowStart, windowEnd]);
+  for (const point of [closedStart, closedEnd]) if (point !== null && point > windowStart && point < windowEnd) points.add(point);
   for (const { span } of spans) for (const point of [span.start, span.end, span.breakStart, span.breakEnd]) if (point > windowStart && point < windowEnd) points.add(point);
   const bounds = [...points].sort((a, b) => a - b);
   for (let i = 0; i < bounds.length - 1; i++) {
     const start = bounds[i], end = bounds[i + 1];
+    if (closure && start >= closedStart && end <= closedEnd) continue;
     const available = spans.filter(({ entry, span }) => span.start <= start && span.end >= end && !(span.breakMinutes && span.breakStart < end && span.breakEnd > start) && (rule.mode !== "opening" || ctx.assignments.find((a) => a.id === entry.assignment_id)?.can_open));
     slots.push({ minute: start - base, actual: new Set(available.map((x) => x.entry.person_id)).size, minimum: rule.minimum, duration: (end - start) / 60 });
   }
-  const actual = slots.length ? Math.min(...slots.map((s) => s.actual)) : 0;
-  return { rule, date, actual, minimum: rule.minimum, missing: Math.max(0, rule.minimum - actual), missingHours: slots.reduce((sum, s) => sum + Math.max(0, s.minimum - s.actual) * s.duration, 0), slots };
+  const suspended = !slots.length;
+  const actual = suspended ? null : Math.min(...slots.map((s) => s.actual));
+  const closureHours = closure ? Math.max(0, Math.min(windowEnd, closedEnd) - Math.max(windowStart, closedStart)) / 60 : 0;
+  return { rule, date, actual, suspended, closureHours, minimum: rule.minimum, missing: suspended ? 0 : Math.max(0, rule.minimum - actual), missingHours: slots.reduce((sum, s) => sum + Math.max(0, s.minimum - s.actual) * s.duration, 0), slots };
 }
 function assessCoverage(ctx, start, entries) {
   return weekDates(start).flatMap((date) => applicableRequirements(ctx, date).map((rule) => requirementResult(ctx, rule, date, entries)));
 }
 function coverageSummary(results) {
-  const needed = results.filter((r) => r.minimum > 0);
+  const needed = results.filter((r) => r.minimum > 0 && !r.suspended);
   return { total: needed.length, met: needed.filter((r) => !r.missing).length, gaps: needed.filter((r) => r.missing), pending: results.filter((r) => !r.rule.confirmed), missingHours: results.reduce((s, r) => s + r.missingHours, 0) };
 }
 function validatePlan(ctx, start, entries) {
@@ -245,6 +262,7 @@ export {
   requirementResult,
   staffInventory,
   time,
+  validateOpeningHours,
   validatePlan,
   weekDates,
   weekMonday,

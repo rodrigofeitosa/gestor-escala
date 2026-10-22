@@ -845,3 +845,25 @@ dialog [hidden] {
     font-size: 10px;
   }
 }
+.opening-grid .checkbox-label {
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.5;
+  gap: 7px;
+}
+.opening-grid input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: #173f34;
+}
+.day-closure-fields {
+  margin-top: 12px;
+  padding-top: 2px;
+  border-top: 1px solid #dce7d0;
+}
+.day-closure-fields[hidden] {
+  display: none;
+}

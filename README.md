@@ -28,6 +28,8 @@ Configure o provedor em Authentication → Emails → SMTP Settings no projeto. 
 
 Horários iniciais: segunda a sábado, 07h–21h; domingo, 08h–20h. Os modelos de turno incluem preparação e fechamento. O perfil inicial considera 40h semanais, até 8h de trabalho/dia, 11h entre jornadas e até 5 dias de trabalho na semana e consecutivos. Esses valores são editáveis e estão sinalizados para revisão; não representam afirmação de mudança legal já vigente.
 
+Cada dia pode ter um fechamento opcional durante o expediente, com início e reabertura dentro do horário de funcionamento. Unidades sem essa interrupção mantêm a opção desmarcada. A cobertura por faixa de horário desconsidera o período fechado; faixas totalmente fechadas ficam suspensas. Mínimos diários, horas trabalhadas e intervalos individuais continuam sendo tratados separadamente. Publicações anteriores preservam os horários daquela versão.
+
 A sugestão é uma heurística de apoio, sem garantia de solução ótima. Mínimos diários não comprovam cobertura durante todo o funcionamento. Dias/funções sem mínimo cadastrado permanecem como demanda a definir. Confirmações de interpretação, jornada contratual e horários precisam ser feitas pelo responsável.
 
 A revisão verifica carga semanal, dias, sequência entre semanas, disponibilidade, ausência, habilitação, intervalo, sobreposição, descanso e mínimos cadastrados. O servidor considera vínculos da mesma pessoa em outras unidades, inclusive a última versão publicada enquanto outra revisão está aberta. A prévia local dispõe apenas dos dados visíveis ao usuário; a decisão final é do servidor. A vinculação administrativa de uma mesma pessoa a outra unidade e a migração de contratos especiais precisam de evolução específica na interface.
