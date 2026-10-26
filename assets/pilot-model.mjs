@@ -40,6 +40,20 @@ function workSpan(entry) {
   return entry.kind === "work" ? shiftSpan(entry.work_date, { start: time(entry.start_time), end: time(entry.end_time), breakStart: time(entry.break_start), breakEnd: time(entry.break_end) }) : null;
 }
 const workHours = (entry) => (workSpan(entry)?.workMinutes || 0) / 60;
+function weeklyHoursFor(ctx, person) {
+  return person?.weekly_hours_source === "unit" ? Number(ctx.settings.policy.weeklyHours) : Number(person?.weekly_hours ?? ctx.settings.policy.weeklyHours);
+}
+function weeklyLimit(ctx, person) {
+  return Math.min(Number(ctx.settings.policy.weeklyHours), weeklyHoursFor(ctx, person));
+}
+function configurationWarnings(ctx) {
+  const p = ctx.settings.policy, warnings = [], dailyCapacity = p.dailyHours * p.maxWorkDays;
+  if (p.weeklyHours > dailyCapacity) warnings.push({ code: "policy_capacity", level: "warning", message: "Os limites diários e de dias não comportam a referência semanal", detail: `${p.dailyHours}h por dia × ${p.maxWorkDays} dias = ${dailyCapacity.toLocaleString("pt-BR")}h, abaixo das ${p.weeklyHours}h semanais. Revise os parâmetros sem alterar contratos individuais.` });
+  const valid = ctx.shifts.map((s) => workHours({ kind: "work", work_date: "2026-01-05", ...s })).filter((h) => h > 0 && h <= p.dailyHours);
+  if (!valid.length) warnings.push({ code: "shift_capacity", level: "warning", message: "Nenhum modelo de turno cabe no limite diário", detail: `Confira os turnos de referência ou o limite diário de ${p.dailyHours}h antes de gerar uma sugestão.` });
+  else if (p.weeklyHours > Math.max(...valid) * p.maxWorkDays) warnings.push({ code: "template_capacity", level: "warning", message: "Os modelos de turno não completam a referência semanal", detail: `Os modelos compatíveis permitem até ${(Math.max(...valid) * p.maxWorkDays).toLocaleString("pt-BR")}h em ${p.maxWorkDays} dias. A sugestão usa os horários cadastrados, sem inventar horas para atingir ${p.weeklyHours}h.` });
+  return warnings;
+}
 function fromTemplate(a, date, template, sectorId = a.sector_id, roleId = a.role_id) {
   return { assignment_id: a.id, person_id: a.person_id, work_date: date, kind: "work", sector_id: sectorId, role_id: roleId, start_time: time(template.start_time), end_time: time(template.end_time), break_start: time(template.break_start), break_end: time(template.break_end), locked: false };
 }
@@ -89,7 +103,7 @@ function validatePlan(ctx, start, entries) {
     const own = entries.filter((e) => e.assignment_id === a.id);
     if (dates.some((d) => isActive(a, d) && !own.some((e) => e.work_date === d))) add("missing", "block", "Há dias sem turno ou folga definidos", { person_id: a.person_id });
     const total = all.filter((e) => e.person_id === a.person_id && dates.includes(e.work_date)).reduce((s, e) => s + workHours(e), 0);
-    if (total > Math.min(a.person.weekly_hours, pol.weeklyHours) + 1e-3) add("weekly", "block", "Carga semanal excedida", { person_id: a.person_id }, `${total.toFixed(1)}h previstas`);
+    if (total > weeklyLimit(ctx, a.person) + 1e-3) add("weekly", "block", "Carga semanal excedida", { person_id: a.person_id }, `${total.toFixed(1)}h previstas / ${weeklyLimit(ctx, a.person)}h de limite (${a.person.weekly_hours_source === "unit" ? "padrão provisório da unidade" : "jornada individual, limitada pelo perfil da unidade"})`);
     if (new Set(all.filter((e) => e.person_id === a.person_id && e.kind === "work" && dates.includes(e.work_date)).map((e) => e.work_date)).size > pol.maxWorkDays) add("days", "block", "Dias de trabalho acima do perfil", { person_id: a.person_id });
     if (!a.person.contract_confirmed) add("contract", "warning", "Jornada contratual a confirmar", { person_id: a.person_id });
   }
@@ -119,14 +133,14 @@ function validatePlan(ctx, start, entries) {
   for (const r of assessCoverage(ctx, start, entries).filter((r2) => r2.missing)) add("coverage", r.rule.confirmed && r.rule.blocking ? "block" : "warning", "Cobertura abaixo do mínimo", { work_date: r.date }, `${r.actual}/${r.minimum} · ${ctx.sectors.find((s) => s.id === r.rule.sector_id)?.name || ""} / ${ctx.roles.find((f) => f.id === r.rule.role_id)?.name || "Total do setor"}`);
   if (!ctx.settings.policyReviewed) add("policy_review", "warning", "Perfil de jornada ainda não revisado");
   if (!ctx.settings.operationConfirmed) add("operation_review", "warning", "Horários iniciais da operação a revisar");
-  return [...new Map(issues.map((i) => [`${i.code}:${i.personId}:${i.date}:${i.detail}`, i])).values()];
+  return [...new Map([...issues, ...configurationWarnings(ctx)].map((i) => [`${i.code}:${i.personId}:${i.date}:${i.detail}`, i])).values()];
 }
 function canPlace(ctx, start, a, candidate, entries) {
   if (!isActive(a, candidate.work_date) || !a.weekdays.includes(dayOf(candidate.work_date)) || isAbsent(ctx, a, candidate.work_date)) return false;
   if (entries.some((e) => e.person_id === a.person_id && e.work_date === candidate.work_date && (e.kind === "work" || e.locked))) return false;
   const dates = weekDates(start), pol = ctx.settings.policy, all = [...ctx.otherEntries.filter((e) => !(e.unit_id === ctx.unit.id && dates.includes(e.work_date))), ...entries.filter((e) => e.kind === "work"), candidate];
   const own = all.filter((e) => e.person_id === a.person_id && e.kind === "work");
-  if (own.filter((e) => dates.includes(e.work_date)).reduce((s, e) => s + workHours(e), 0) > Math.min(pol.weeklyHours, a.person.weekly_hours) + 1e-3) return false;
+  if (own.filter((e) => dates.includes(e.work_date)).reduce((s, e) => s + workHours(e), 0) > weeklyLimit(ctx, a.person) + 1e-3) return false;
   if (new Set(own.filter((e) => dates.includes(e.work_date)).map((e) => e.work_date)).size > pol.maxWorkDays) return false;
   const span = workSpan(candidate);
   if (!span || span.workMinutes > pol.dailyHours * 60) return false;
@@ -249,6 +263,7 @@ export {
   addDays,
   applicableRequirements,
   assessCoverage,
+  configurationWarnings,
   contextFor,
   coverageSummary,
   dayOf,
@@ -266,6 +281,8 @@ export {
   validatePlan,
   weekDates,
   weekMonday,
+  weeklyHoursFor,
+  weeklyLimit,
   withScenario,
   workHours,
   workSpan

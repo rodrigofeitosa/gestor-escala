@@ -20,7 +20,7 @@ select pg_temp.assert_true((select count(*)=2 from public.units),'owner units is
 do $$ declare v integer;a uuid;r public.schedules;rows jsonb;issues jsonb;before_name text;rule_id uuid;begin
  select revision into v from public.units where id=pg_temp.f('unit');
  perform public.mutate_configuration(pg_temp.f('unit'),v,'sectors',jsonb_build_object('name','New test sector'),false);
- begin perform public.mutate_configuration(pg_temp.f('unit'),v,'sectors',jsonb_build_object('name','Stale write'),false);raise exception 'TEST FAILED stale revision accepted';exception when serialization_failure then null;end;
+ begin perform public.mutate_configuration(pg_temp.f('unit'),v,'sectors',jsonb_build_object('name','Stale write'),false);raise exception 'TEST FAILED stale revision accepted';exception when sqlstate 'PT409' then null;end;
  select revision into v from public.units where id=pg_temp.f('unit');
  begin perform public.save_employee(pg_temp.f('unit'),v,pg_temp.f('assignment'),jsonb_build_object('name','Should roll back','weekly_hours',40,'contract_confirmed',true),jsonb_build_object('role_id',gen_random_uuid()));raise exception 'TEST FAILED invalid role accepted';exception when foreign_key_violation then null;end;
  perform pg_temp.assert_true((select name='Test person' from public.people where id=pg_temp.f('person')),'employee edits atomic');
@@ -31,8 +31,8 @@ do $$ declare v integer;a uuid;r public.schedules;rows jsonb;issues jsonb;before
  select revision into v from public.units where id=pg_temp.f('unit');
  r=public.save_schedule(pg_temp.f('unit'),'2026-10-19',0,v,rows,'Verification');
  perform pg_temp.assert_true(not exists(select 1 from jsonb_array_elements(public.schedule_issues(r.id)) i where i->>'level'='block'),'valid complete plan');
- begin perform public.save_schedule(pg_temp.f('unit'),'2026-10-19',0,v,rows,'stale');raise exception 'TEST FAILED schedule concurrency';exception when serialization_failure then null;end;
- begin perform public.save_schedule(pg_temp.f('unit'),'2026-10-19',null,v,rows,'null revision');raise exception 'TEST FAILED null revision';exception when serialization_failure then null;end;
+ begin perform public.save_schedule(pg_temp.f('unit'),'2026-10-19',0,v,rows,'stale');raise exception 'TEST FAILED schedule concurrency';exception when sqlstate 'PT409' then null;end;
+ begin perform public.save_schedule(pg_temp.f('unit'),'2026-10-19',null,v,rows,'null revision');raise exception 'TEST FAILED null revision';exception when sqlstate 'PT409' then null;end;
  begin perform public.save_schedule(pg_temp.f('unit'),'2026-10-19',r.revision,v,jsonb_set(jsonb_set(rows,'{0,kind}','"work"'),'{0,end_time}','null'),'invalid');raise exception 'TEST FAILED null shift times';exception when check_violation then null;end;
  select (public.mutate_configuration(pg_temp.f('unit'),v,'coverage_requirements',jsonb_build_object('sector_id',pg_temp.f('sector'),'role_id',pg_temp.f('role'),'weekdays',jsonb_build_array(0),'minimum',1,'mode','simultaneous','start_time','10:45','end_time','11:15','effective_from','2026-10-19','confirmed',true,'blocking',true),false)->>'id')::uuid into rule_id;
  perform pg_temp.assert_true(exists(select 1 from jsonb_array_elements(public.schedule_issues(r.id)) i where i->>'code'='coverage' and i->>'level'='block'),'break reduces simultaneous coverage');

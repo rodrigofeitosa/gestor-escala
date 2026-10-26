@@ -32,6 +32,10 @@ Cada dia pode ter um fechamento opcional durante o expediente, com início e rea
 
 A sugestão é uma heurística de apoio, sem garantia de solução ótima. Mínimos diários não comprovam cobertura durante todo o funcionamento. Dias/funções sem mínimo cadastrado permanecem como demanda a definir. Confirmações de interpretação, jornada contratual e horários precisam ser feitas pelo responsável.
 
+A jornada semanal tem origem explícita: **padrão da unidade, provisório** ou **jornada individual**. O padrão acompanha a referência semanal da unidade; uma jornada individual mantém o valor informado. O limite aplicado é o menor entre a jornada da pessoa e a referência da unidade. Confirmar um contrato exige informar a jornada individual. Cadastros antigos sem essa indicação conservam o valor individual; a conciliação de cadastros provisórios é feita na base privada, sem alterar contratos conferidos.
+
+Alterar a referência de 40h para 42h não alonga os modelos de turno nem os rascunhos salvos. Por exemplo, 7h30 por dia em até 5 dias permitem somente 37h30; modelos de 8h em 5 dias permitem até 40h. As telas de operação, cobertura e escala explicam essas incompatibilidades. A sugestão fica indisponível quando nenhum modelo cabe no limite diário. Revise parâmetros e turnos com o responsável antes de interpretar lacunas como necessidade de contratação.
+
 A revisão verifica carga semanal, dias, sequência entre semanas, disponibilidade, ausência, habilitação, intervalo, sobreposição, descanso e mínimos cadastrados. O servidor considera vínculos da mesma pessoa em outras unidades, inclusive a última versão publicada enquanto outra revisão está aberta. A prévia local dispõe apenas dos dados visíveis ao usuário; a decisão final é do servidor. A vinculação administrativa de uma mesma pessoa a outra unidade e a migração de contratos especiais precisam de evolução específica na interface.
 
 Não há cálculo completo de regras de domingos, feriados, trabalho noturno, regimes especiais, banco de horas ou todas as cláusulas de convenções/acordos coletivos. O piloto não certifica conformidade jurídica e requer revisão das regras aplicáveis antes do uso operacional definitivo. Os turnos desta versão começam e terminam no mesmo dia.
@@ -65,10 +69,13 @@ As migrações em `supabase/migrations/` criam a estrutura vazia e as permissõe
 
 Gravações passam por operações transacionais com verificação de permissão e revisão dos dados. Todas as tabelas expostas usam RLS; visitantes não podem consultar a base. Publicações preservam dados e regras da versão. A auditoria registra autor, ação e referência do registro, sem copiar cadastros completos para o log.
 
-`npm test` cobre os importadores, a demo e o motor de planejamento. `supabase/tests/pilot_access.sql` verifica isolamento, perfis, gravação atômica, concorrência, publicações e carga compartilhada usando registros fictícios em transação com **rollback**. Execute somente como administrador em ambiente controlado. Faça backup e teste restauração antes de ampliar o uso operacional.
+Conflitos de revisão usam SQLSTATE `PT409` (HTTP 409), com uma única resposta para o navegador. Não use `40001` para conflitos de aplicação: o PostgREST 14 pode repetir indefinidamente essas transações e consumir CPU. A migração `stop_conflict_retry_loop` corrige as funções existentes sem remover a proteção contra sobrescritas. Ao encontrar configuração desatualizada, **Recarregar dados** preserva o rascunho local se a escala salva não mudou; se outro usuário alterou a escala, é possível exportar a cópia local antes de carregar a versão atual.
+
+`npm test` cobre os importadores, a demo e o motor de planejamento. `supabase/tests/pilot_access.sql` verifica isolamento, perfis, gravação atômica, concorrência, publicações e carga compartilhada; `supabase/tests/weekly_hours.sql` verifica a referência de 42h, a preservação de contratos de 40h e conflitos `PT409`. Ambos usam registros fictícios em transação com **rollback**. Execute somente como administrador em ambiente controlado. Faça backup e teste restauração antes de ampliar o uso operacional.
 
 ## Referências
 
 - [Segurança da API do Supabase](https://supabase.com/docs/guides/api/securing-your-api)
 - [Configuração de envio de e-mail](https://supabase.com/docs/guides/auth/auth-smtp)
+- [CPU alta e repetição de transações com códigos de erro personalizados](https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b)
 - [SDK do Inner REP Plus](https://integrador.topdata.com.br/suporte/download-sdk-innerrep/)
