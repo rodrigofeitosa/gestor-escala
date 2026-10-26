@@ -63,6 +63,8 @@ npm start
 
 A prévia é servida em `http://127.0.0.1:4173/`. `npm run build` prepara `dist/` com o piloto, a demo e os arquivos estáticos. O GitHub Actions executa testes e publica apenas essa pasta no GitHub Pages.
 
+O arquivo JavaScript do piloto recebe uma versão baseada no conteúdo durante o build. Ao recarregar a página após uma publicação, o navegador solicita o arquivo novo em vez de reutilizar uma versão anterior em cache.
+
 `assets/pilot-config.mjs` contém somente a URL e a chave **publishable**, próprias para cliente público. A chave não concede acesso aos cadastros sem sessão autorizada. Nunca inclua chave secret/service_role, credenciais, RB1, AFD original ou documentos da operação.
 
 As migrações em `supabase/migrations/` criam a estrutura vazia e as permissões. A carga inicial e as liberações reais são mantidas exclusivamente no ambiente privado. O histórico remoto foi alinhado às versões locais após a aplicação e validação da estrutura inicial. O `config.toml` descreve desenvolvimento local e não deve ser enviado integralmente à produção sem revisar as diferenças.

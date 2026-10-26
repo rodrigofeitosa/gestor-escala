@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, rm, readFile, rename, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname,resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -10,4 +11,10 @@ await mkdir(output,{recursive:true});
 for(const file of ['index.html','demo.html','.nojekyll'])await cp(resolve(root,file),resolve(output,file));
 await cp(resolve(root,'assets'),resolve(output,'assets'),{recursive:true});
 await build({entryPoints:[resolve(root,'assets/pilot.mjs')],outfile:resolve(output,'assets/pilot.js'),bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,legalComments:'eof'});
+const bundle=resolve(output,'assets/pilot.js');
+const version=createHash('sha256').update(await readFile(bundle)).digest('hex').slice(0,12);
+const bundleName=`pilot-${version}.js`;
+await rename(bundle,resolve(output,'assets',bundleName));
+const index=resolve(output,'index.html');
+await writeFile(index,(await readFile(index,'utf8')).replace('./assets/pilot.js',`./assets/${bundleName}`));
 console.log('Piloto e demo preparados em dist/. Nenhum dado operacional foi incluído.');
